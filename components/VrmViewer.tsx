@@ -151,7 +151,7 @@ const VrmViewer: React.FC<VrmViewerProps> = ({ arrayBuffer }) => {
         : null;
 
   return (
-    <div ref={containerRef} className="relative w-full min-h-[360px] rounded-lg border border-gray-700 bg-[#080810] overflow-hidden">
+    <div ref={containerRef} className="relative w-full min-h-[400px] rounded-lg border border-gray-700 bg-[#080810] overflow-hidden">
       <div ref={canvasWrapperRef} className="absolute inset-0 z-0" />
       {overlay && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center text-sm font-medium text-gray-400">
