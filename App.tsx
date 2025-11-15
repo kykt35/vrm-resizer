@@ -36,7 +36,7 @@ const TextureCard: React.FC<{
        {texture.isReplaced && (
         <span className="absolute top-2 right-2 bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full z-10">Replaced</span>
       )}
-      <img src={texture.blobUrl} alt={texture.name} className="w-full h-48 object-cover bg-gray-700" />
+      <img src={texture.blobUrl} alt={texture.name} className="w-full h-48 object-contain bg-gray-700" />
       <div className="p-4">
         <h3 className="font-bold text-lg truncate" title={texture.name}>{texture.name}</h3>
         <p className="text-sm text-gray-400">{texture.originalWidth} x {texture.originalHeight}</p>
@@ -357,16 +357,18 @@ function App() {
                     <GlobalResizeControl />
                   </div>
 
-                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-1">
-                    {textures.map(texture => (
-                      <TextureCard
-                        key={texture.index}
-                        texture={texture}
-                        selectedSize={resizeOptions.get(texture.index) || 0}
-                        onSizeChange={(size) => handleResizeChange(texture.index, size)}
-                        onReplace={(file) => handleTextureReplace(texture.index, file)}
-                      />
-                    ))}
+                  <div className="max-h-[60vh] overflow-y-auto pr-2">
+                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-1">
+                      {textures.map(texture => (
+                        <TextureCard
+                          key={texture.index}
+                          texture={texture}
+                          selectedSize={resizeOptions.get(texture.index) || 0}
+                          onSizeChange={(size) => handleResizeChange(texture.index, size)}
+                          onReplace={(file) => handleTextureReplace(texture.index, file)}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
