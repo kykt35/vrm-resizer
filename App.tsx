@@ -2,73 +2,10 @@ import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import type { TextureInfo, VrmData } from './types';
 import Spinner from './components/Spinner';
 import { DownloadIcon, ResetIcon, UploadIcon } from './components/icons';
+import TextureCard from './components/TextureCard';
 import VrmViewer from './components/VrmViewer';
 import { parseGlb, extractTextures, resizeImage, rebuildGlb } from './services/vrmService';
-
-const SIZES = [4096, 2048, 1024, 512, 256];
-
-const TextureCard: React.FC<{
-  texture: TextureInfo;
-  selectedSize: number;
-  onSizeChange: (size: number) => void;
-  onReplace: (file: File) => void;
-}> = ({ texture, selectedSize, onSizeChange, onReplace }) => {
-  const availableSizes = SIZES.filter(s => s <= texture.originalWidth || s <= texture.originalHeight);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleReplaceClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      onReplace(file);
-    }
-     // Reset file input to allow selecting the same file again
-    if(event.target) {
-      event.target.value = '';
-    }
-  };
-
-  return (
-    <div className="bg-gray-800 rounded-lg overflow-hidden shadow-lg transition-transform hover:scale-105 relative">
-       {texture.isReplaced && (
-        <span className="absolute top-2 right-2 bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full z-10">Replaced</span>
-      )}
-      <img src={texture.blobUrl} alt={texture.name} className="w-full h-48 object-contain bg-gray-700" />
-      <div className="p-4">
-        <h3 className="font-bold text-lg truncate" title={texture.name}>{texture.name}</h3>
-        <p className="text-sm text-gray-400">{texture.originalWidth} x {texture.originalHeight}</p>
-        <select
-          value={selectedSize}
-          onChange={(e) => onSizeChange(parseInt(e.target.value, 10))}
-          className="mt-3 w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={texture.isReplaced}
-        >
-          <option value={0}>Keep Original</option>
-          {availableSizes.map(size => (
-            <option key={size} value={size}>{size} x {size} (Max)</option>
-          ))}
-        </select>
-        <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            accept="image/png, image/jpeg"
-            onChange={handleFileSelected}
-        />
-        <button
-            onClick={handleReplaceClick}
-            className="mt-2 w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition-colors"
-        >
-            Replace Texture
-        </button>
-      </div>
-    </div>
-  );
-};
-
+import { TEXTURE_SIZES } from './constants/textureSizes';
 
 function App() {
   const [vrmFile, setVrmFile] = useState<File | null>(null);
@@ -344,7 +281,7 @@ function App() {
             className="bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto"
         >
             <option value={0}>-- Select Size --</option>
-            {SIZES.slice(1).map(size => (
+            {TEXTURE_SIZES.slice(1).map(size => (
                 <option key={size} value={size}>{size} x {size}</option>
             ))}
         </select>
@@ -381,6 +318,25 @@ function App() {
                   </div>
                 )}
               </div>
+              {!isLoading && textures.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-4">
+                  <button
+                    onClick={handleProcessAndDownload}
+                    disabled={changesCount === 0}
+                    className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 transition-colors"
+                  >
+                    <DownloadIcon className="w-5 h-5" />
+                    Process & Download ({changesCount} {changesCount === 1 ? 'change' : 'changes'})
+                  </button>
+                  <button
+                    onClick={resetState}
+                    className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 transition-colors"
+                  >
+                    <ResetIcon className="w-5 h-5" />
+                    Reset
+                  </button>
+                </div>
+              )}
             </section>
 
             <section className="flex flex-col gap-6">
@@ -402,31 +358,14 @@ function App() {
 
               {!isLoading && textures.length > 0 && (
                 <div className="flex flex-col gap-6">
-                  <div className="bg-gray-800 rounded-lg p-4 flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex flex-wrap items-center gap-4">
-                      <button
-                        onClick={handleProcessAndDownload}
-                        disabled={changesCount === 0}
-                        className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 transition-colors"
-                      >
-                        <DownloadIcon className="w-5 h-5" />
-                        Process & Download ({changesCount} {changesCount === 1 ? 'change' : 'changes'})
-                      </button>
-                      <button
-                        onClick={resetState}
-                        className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 transition-colors"
-                      >
-                        <ResetIcon className="w-5 h-5" />
-                        Reset
-                      </button>
-                      <button
-                        onClick={handlePreviewUpdate}
-                        disabled={changesCount === 0}
-                        className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 transition-colors"
-                      >
-                        Apply to Preview
-                      </button>
-                    </div>
+                  <div className="bg-gray-800 rounded-lg p-4 flex flex-col gap-4">
+                    <button
+                      onClick={handlePreviewUpdate}
+                      disabled={changesCount === 0}
+                      className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 transition-colors"
+                    >
+                      Apply to Preview
+                    </button>
                     <GlobalResizeControl />
                   </div>
 
