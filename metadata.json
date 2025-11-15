@@ -1,0 +1,5 @@
+
+{
+  "name": "VRM Texture Resizer",
+  "description": "An application to upload a VRM file, view its textures, and resize them to reduce the overall file size. Processed files can be downloaded directly from the browser."
+}
