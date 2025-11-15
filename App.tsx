@@ -418,8 +418,10 @@ function App() {
     <div className="min-h-screen bg-gray-900 text-gray-200 flex flex-col items-center p-4 sm:p-8">
       <div className="w-full max-w-7xl">
         <header className="text-center mb-8">
-          <h1 className="text-4xl sm:text-5xl font-bold text-white">VRM Texture Resizer</h1>
-          <p className="text-lg text-gray-400 mt-2">Reduce VRM file size by optimizing or replacing textures in your browser.</p>
+          <h1 className="text-4xl sm:text-5xl font-bold text-white">VRM-KT</h1>
+          <p className="text-lg text-gray-400 mt-2">
+            Lightweight browser tool that parses VRM files, lets you swap thumbnails, and instantly applies texture replacements or resizes.
+          </p>
         </header>
 
         <main className="space-y-6">
