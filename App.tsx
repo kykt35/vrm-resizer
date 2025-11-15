@@ -16,6 +16,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [hasFinishedInitialLoad, setHasFinishedInitialLoad] = useState(false);
+  const [isInitialUploadLoading, setIsInitialUploadLoading] = useState(false);
 
   const statusMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -53,6 +55,8 @@ function App() {
     setIsLoading(false);
     updateStatusMessage('');
     setError(null);
+    setHasFinishedInitialLoad(false);
+    setIsInitialUploadLoading(false);
   }, [textures, updateStatusMessage]);
 
   const handleFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,6 +69,7 @@ function App() {
     }
 
     resetState();
+    setIsInitialUploadLoading(true);
     setIsLoading(true);
     updateStatusMessage('Parsing VRM file...');
     setError(null);
@@ -79,12 +84,14 @@ function App() {
       updateStatusMessage('Extracting textures...');
       const extracted = await extractTextures(json, bin);
       setTextures(extracted);
+      setHasFinishedInitialLoad(true);
 
     } catch (e: any) {
       setError(`Failed to process VRM file: ${e.message}`);
       resetState();
     } finally {
       setIsLoading(false);
+      setIsInitialUploadLoading(false);
       updateStatusMessage('');
     }
   }, [resetState]);
@@ -274,19 +281,26 @@ function App() {
 
   const GlobalResizeControl = () => (
     <div className="flex flex-col sm:flex-row items-center gap-2">
-        <label htmlFor="global-resize" className="text-gray-300">Resize all to (max):</label>
-        <select
-            id="global-resize"
-            onChange={(e) => handleGlobalResize(parseInt(e.target.value, 10))}
-            className="bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto"
-        >
-            <option value={0}>-- Select Size --</option>
-            {TEXTURE_SIZES.slice(1).map(size => (
-                <option key={size} value={size}>{size} x {size}</option>
-            ))}
-        </select>
+      <label htmlFor="global-resize" className="text-gray-300">
+        Resize all to (max):
+      </label>
+      <select
+        id="global-resize"
+        onChange={e => handleGlobalResize(parseInt(e.target.value, 10))}
+        className="bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto"
+      >
+        <option value={0}>-- Select Size --</option>
+        {TEXTURE_SIZES.slice(1).map(size => (
+          <option key={size} value={size}>
+            {size} x {size}
+          </option>
+        ))}
+      </select>
     </div>
-);
+  );
+
+  const hasTextures = textures.length > 0;
+  const showModelSections = hasFinishedInitialLoad && !isInitialUploadLoading;
 
 
   return (
@@ -297,67 +311,63 @@ function App() {
           <p className="text-lg text-gray-400 mt-2">Reduce VRM file size by optimizing or replacing textures in your browser.</p>
         </header>
 
-        <main>
-          <div className={`grid gap-6 ${textures.length > 0 ? 'xl:grid-cols-2' : ''}`}>
-            <section className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <h2 className="text-2xl font-semibold text-white">Model Preview</h2>
-                <p className="text-sm text-gray-400">Orbit with mouse / pinch to zoom</p>
-              </div>
-              <div className="min-h-[360px]">
-                {vrmPreviewBuffer ? (
-                  <VrmViewer arrayBuffer={vrmPreviewBuffer} />
-                ) : (
-                  <div className="flex h-full flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-gray-600 bg-gray-900/40 p-6 text-center text-sm text-gray-400">
-                    <UploadIcon className="w-10 h-10 text-gray-500" />
-                    <p>Upload a VRM file to see a live preview of your model.</p>
-                    <label className="mt-2 inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-                      Select File
-                      <input type="file" className="hidden" accept=".vrm" onChange={handleFileChange} />
-                    </label>
+        <main className="space-y-6">
+          {error && (
+            <div className="bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded-lg relative" role="alert">
+              <strong className="font-bold">Error: </strong>
+              <span className="block sm:inline">{error}</span>
+            </div>
+          )}
+
+          {(isLoading || statusMessage) ? (
+            <div className="flex flex-col items-center justify-center bg-gray-800 rounded-lg p-12 text-center">
+              <Spinner className="w-16 h-16 mb-4" />
+              <p className="text-xl text-gray-300">{statusMessage}</p>
+            </div>
+          ) : !showModelSections ? (
+            <section className="bg-gray-800 rounded-lg p-6 border border-gray-700 flex flex-col items-center justify-center gap-4 text-center">
+              <UploadIcon className="w-12 h-12 text-gray-500" />
+              <p className="text-lg text-gray-400 max-w-sm">
+                Upload a VRM file to get started. After the file is parsed we'll show a live preview of your model and the texture controls.
+              </p>
+              <label className="mt-3 inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+                Select File
+                <input type="file" className="hidden" accept=".vrm" onChange={handleFileChange} />
+              </label>
+            </section>
+          ) : (
+            <div className="grid gap-6 xl:grid-cols-2">
+              <section className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h2 className="text-2xl font-semibold text-white">Model Preview</h2>
+                  <p className="text-sm text-gray-400">Orbit with mouse / pinch to zoom</p>
+                </div>
+                <div className="min-h-[360px]">
+                  {vrmPreviewBuffer && <VrmViewer arrayBuffer={vrmPreviewBuffer} />}
+                </div>
+                {!isLoading && hasTextures && (
+                  <div className="mt-4 flex flex-wrap gap-4">
+                    <button
+                      onClick={handleProcessAndDownload}
+                      disabled={changesCount === 0}
+                      className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 transition-colors"
+                    >
+                      <DownloadIcon className="w-5 h-5" />
+                      Process & Download ({changesCount} {changesCount === 1 ? 'change' : 'changes'})
+                    </button>
+                    <button
+                      onClick={resetState}
+                      className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 transition-colors"
+                    >
+                      <ResetIcon className="w-5 h-5" />
+                      Reset
+                    </button>
                   </div>
                 )}
-              </div>
-              {!isLoading && textures.length > 0 && (
-                <div className="mt-4 flex flex-wrap gap-4">
-                  <button
-                    onClick={handleProcessAndDownload}
-                    disabled={changesCount === 0}
-                    className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 transition-colors"
-                  >
-                    <DownloadIcon className="w-5 h-5" />
-                    Process & Download ({changesCount} {changesCount === 1 ? 'change' : 'changes'})
-                  </button>
-                  <button
-                    onClick={resetState}
-                    className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 transition-colors"
-                  >
-                    <ResetIcon className="w-5 h-5" />
-                    Reset
-                  </button>
-                </div>
-              )}
-            </section>
+              </section>
 
-            <section className="flex flex-col gap-6">
-              {error && (
-                <div className="bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded-lg relative" role="alert">
-                  <strong className="font-bold">Error: </strong>
-                  <span className="block sm:inline">{error}</span>
-                </div>
-              )}
-
-              {(isLoading || statusMessage) && (
-                <div className="flex flex-col items-center justify-center bg-gray-800 rounded-lg p-12 text-center">
-                  <Spinner className="w-16 h-16 mb-4" />
-                  <p className="text-xl text-gray-300">{statusMessage}</p>
-                </div>
-              )}
-
-
-
-              {!isLoading && textures.length > 0 && (
-                <div className="flex flex-col gap-6">
+              {hasTextures && (
+                <section className="flex flex-col gap-6">
                   <div className="bg-gray-800 rounded-lg p-4 flex flex-col gap-4">
                     <button
                       onClick={handlePreviewUpdate}
@@ -376,16 +386,16 @@ function App() {
                           key={texture.index}
                           texture={texture}
                           selectedSize={resizeOptions.get(texture.index) || 0}
-                          onSizeChange={(size) => handleResizeChange(texture.index, size)}
-                          onReplace={(file) => handleTextureReplace(texture.index, file)}
+                          onSizeChange={size => handleResizeChange(texture.index, size)}
+                          onReplace={file => handleTextureReplace(texture.index, file)}
                         />
                       ))}
                     </div>
                   </div>
-                </div>
+                </section>
               )}
-            </section>
-          </div>
+            </div>
+          )}
         </main>
       </div>
     </div>
