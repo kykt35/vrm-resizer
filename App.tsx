@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import type { TextureInfo, VrmData } from './types';
+import type { TextureInfo, VrmData, VrmMeta } from './types';
 import Spinner from './components/Spinner';
 import { DownloadIcon, ResetIcon, UploadIcon } from './components/icons';
 import TextureCard from './components/TextureCard';
@@ -18,8 +18,11 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [hasFinishedInitialLoad, setHasFinishedInitialLoad] = useState(false);
   const [isInitialUploadLoading, setIsInitialUploadLoading] = useState(false);
+  const [vrmMetadata, setVrmMetadata] = useState<VrmMeta | null>(null);
+  const [metadataThumbnailImageIndex, setMetadataThumbnailImageIndex] = useState<number | null>(null);
 
   const statusMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const metadataThumbnailInputRef = useRef<HTMLInputElement>(null);
 
   const cancelStatusMessageTimer = useCallback(() => {
     if (statusMessageTimerRef.current) {
@@ -57,6 +60,8 @@ function App() {
     setError(null);
     setHasFinishedInitialLoad(false);
     setIsInitialUploadLoading(false);
+    setVrmMetadata(null);
+    setMetadataThumbnailImageIndex(null);
   }, [textures, updateStatusMessage]);
 
   const handleFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -95,6 +100,38 @@ function App() {
       updateStatusMessage('');
     }
   }, [resetState]);
+
+  useEffect(() => {
+    if (!vrmData) {
+      setVrmMetadata(null);
+      setMetadataThumbnailImageIndex(null);
+      return;
+    }
+
+    const extensions = vrmData.json?.extensions;
+    const meta =
+      (extensions?.VRM?.meta as VrmMeta | undefined) ??
+      (extensions?.VRMC_vrm?.meta as VrmMeta | undefined);
+    if (!meta) {
+      setVrmMetadata(null);
+      setMetadataThumbnailImageIndex(null);
+      return;
+    }
+
+    const textureIndex =
+      typeof meta.texture === 'number'
+        ? meta.texture
+        : typeof meta.thumbnailImage === 'number'
+        ? meta.thumbnailImage
+        : null;
+    const texturesDef = vrmData.json?.textures;
+    const imageIndex =
+      textureIndex !== null && texturesDef?.[textureIndex]?.source !== undefined
+        ? texturesDef[textureIndex].source
+        : null;
+    setVrmMetadata(meta);
+    setMetadataThumbnailImageIndex(imageIndex);
+  }, [vrmData]);
 
   const handleResizeChange = useCallback((textureIndex: number, size: number) => {
     setResizeOptions(prev => new Map(prev).set(textureIndex, size));
@@ -181,6 +218,91 @@ function App() {
     };
     img.src = newBlobUrl;
   }, []);
+
+  const metadataThumbnailTexture = useMemo(() => {
+    if (metadataThumbnailImageIndex === null) {
+      return null;
+    }
+    return textures.find(texture => texture.index === metadataThumbnailImageIndex) ?? null;
+  }, [metadataThumbnailImageIndex, textures]);
+
+  const metadataFields = useMemo(() => {
+    if (!vrmMetadata) return [];
+
+    const labelMap: Record<string, string> = {
+      title: 'Title',
+      name: 'Name',
+      version: 'Version',
+      author: 'Author',
+      contactInformation: 'Contact',
+      description: 'Description',
+      reference: 'Reference',
+      allowedUserName: 'Allowed Users',
+      violentUsageName: 'Violent Usage',
+      violentUssageName: 'Violent Usage',
+    };
+
+    const formatLabel = (key: string) => {
+      const spaced = key.replace(/([A-Z])/g, ' $1');
+      return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+    };
+
+    const entries = Object.entries(vrmMetadata)
+      .filter(([key]) => key !== 'texture' && key !== 'licenseName' && key !== 'licenseUrl')
+      .map(([key, value]) => ({
+        label: labelMap[key] || formatLabel(key),
+        value,
+      }))
+      .filter(field => field.value !== undefined && field.value !== null && field.value !== '');
+
+    if (vrmMetadata.licenseName || vrmMetadata.licenseUrl) {
+      const licenseLabel = vrmMetadata.licenseName || 'License';
+      const licenseValue = vrmMetadata.licenseUrl ? (
+        <a
+          href={vrmMetadata.licenseUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="text-blue-400 hover:text-blue-300 transition-colors"
+        >
+          {licenseLabel}
+        </a>
+      ) : (
+        licenseLabel
+      );
+
+      entries.push({ label: 'License', value: licenseValue });
+    }
+
+    return entries;
+  }, [vrmMetadata]);
+
+  const handleMetadataThumbnailUpload = useCallback(
+    (file: File) => {
+      if (metadataThumbnailImageIndex === null) {
+        return;
+      }
+      handleTextureReplace(metadataThumbnailImageIndex, file);
+    },
+    [handleTextureReplace, metadataThumbnailImageIndex]
+  );
+
+  const handleMetadataThumbnailClick = useCallback(() => {
+    metadataThumbnailInputRef.current?.click();
+  }, []);
+
+  const handleMetadataThumbnailSelected = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (file) {
+        handleMetadataThumbnailUpload(file);
+      }
+
+      if (event.target) {
+        event.target.value = '';
+      }
+    },
+    [handleMetadataThumbnailUpload]
+  );
 
   const handleGlobalResize = useCallback((size: number) => {
       const newOptions = new Map<number, number>();
@@ -345,6 +467,60 @@ function App() {
                 <div className="min-h-[360px]">
                   {vrmPreviewBuffer && <VrmViewer arrayBuffer={vrmPreviewBuffer} />}
                 </div>
+                {vrmMetadata && (
+                  <div className="mt-6 rounded-lg border border-gray-700 bg-gray-900 p-4">
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <h3 className="text-lg font-semibold text-white">Model Metadata</h3>
+                      <span className="text-xs uppercase tracking-wide text-gray-500">Read-only</span>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-[1fr,auto]">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {metadataFields.length > 0 ? (
+                          metadataFields.map(field => (
+                            <div key={field.label} className="flex flex-col gap-1 rounded border border-gray-800 bg-gray-800/60 px-3 py-2">
+                              <dt className="text-[11px] uppercase tracking-wide text-gray-400">{field.label}</dt>
+                              <dd className="text-sm text-gray-200">{field.value}</dd>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-gray-400">No metadata fields were provided in this VRM.</p>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-center gap-3 text-center">
+                        <div className="relative h-32 w-32 overflow-hidden rounded border border-gray-700 bg-gray-800">
+                          {metadataThumbnailTexture ? (
+                            <img
+                              src={metadataThumbnailTexture.blobUrl}
+                              alt="Model thumbnail"
+                              className="h-full w-full object-contain"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-gray-800 px-2 text-center text-xs text-gray-400">
+                              No thumbnail defined
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-400">
+                          {metadataThumbnailTexture?.isReplaced ? 'Custom thumbnail applied' : 'Current thumbnail'}
+                        </p>
+                        <input
+                          type="file"
+                          ref={metadataThumbnailInputRef}
+                          className="hidden"
+                          accept="image/png, image/jpeg"
+                          onChange={handleMetadataThumbnailSelected}
+                        />
+                        <button
+                          onClick={handleMetadataThumbnailClick}
+                          disabled={metadataThumbnailImageIndex === null}
+                          className="w-full rounded-lg border border-gray-600 bg-gray-700 px-4 py-2 text-sm font-semibold text-white transition-colors enabled:hover:border-blue-500 enabled:hover:text-blue-200 disabled:opacity-50"
+                        >
+                          {metadataThumbnailImageIndex === null ? 'Thumbnail not defined' : 'Upload new thumbnail'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {!isLoading && hasTextures && (
                   <div className="mt-4 flex flex-wrap gap-4">
                     <button
