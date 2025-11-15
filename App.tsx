@@ -23,6 +23,7 @@ function App() {
   const [vrmMetadata, setVrmMetadata] = useState<VrmMeta | null>(null);
   const [metadataThumbnailImageIndex, setMetadataThumbnailImageIndex] = useState<number | null>(null);
   const [activeRightTab, setActiveRightTab] = useState<RightTabId>('metadata');
+  const [globalResizeValue, setGlobalResizeValue] = useState(0);
 
   const statusMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const metadataThumbnailInputRef = useRef<HTMLInputElement>(null);
@@ -309,6 +310,7 @@ function App() {
   );
 
   const handleGlobalResize = useCallback((size: number) => {
+      setGlobalResizeValue(size);
       const newOptions = new Map<number, number>();
       if (size === 0) {
           setResizeOptions(newOptions);
@@ -412,6 +414,7 @@ function App() {
       </label>
       <select
         id="global-resize"
+        value={globalResizeValue}
         onChange={e => handleGlobalResize(parseInt(e.target.value, 10))}
         className="bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto"
       >
@@ -590,7 +593,7 @@ function App() {
                       </div>
                       {hasTextures ? (
                         <div className="max-h-[55vh] overflow-y-auto pr-2">
-                          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-1">
+                          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-2">
                             {textures.map(texture => (
                               <TextureCard
                                 key={texture.index}
