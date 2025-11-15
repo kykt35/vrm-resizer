@@ -361,7 +361,7 @@ function App() {
         </header>
 
         <main>
-          <div className="grid gap-6 xl:grid-cols-2">
+          <div className={`grid gap-6 ${textures.length > 0 ? 'xl:grid-cols-2' : ''}`}>
             <section className="bg-gray-800 rounded-lg p-4 border border-gray-700">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <h2 className="text-2xl font-semibold text-white">Model Preview</h2>
@@ -398,18 +398,7 @@ function App() {
                 </div>
               )}
 
-              {!isLoading && textures.length === 0 && (
-                <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-600 bg-gray-800 p-12 text-center">
-                  <UploadIcon className="w-16 h-16 text-gray-500 mb-4" />
-                  <h2 className="text-2xl font-semibold mb-2">Upload your VRM file</h2>
-                  <p className="text-gray-400 mb-6">Drag & drop or click to select a file.</p>
-                  <label className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg cursor-pointer transition-colors duration-300 inline-flex items-center gap-2">
-                    <UploadIcon className="w-5 h-5" />
-                    Select File
-                    <input type="file" className="hidden" accept=".vrm" onChange={handleFileChange} />
-                  </label>
-                </div>
-              )}
+
 
               {!isLoading && textures.length > 0 && (
                 <div className="flex flex-col gap-6">
