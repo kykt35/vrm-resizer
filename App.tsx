@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo, useRef } from 'react';
 import type { TextureInfo, VrmData } from './types';
 import Spinner from './components/Spinner';
 import { DownloadIcon, ResetIcon, UploadIcon } from './components/icons';
+import VrmViewer from './components/VrmViewer';
 import { parseGlb, extractTextures, resizeImage, rebuildGlb } from './services/vrmService';
 
 const SIZES = [4096, 2048, 1024, 512, 256];
@@ -29,7 +30,7 @@ const TextureCard: React.FC<{
       event.target.value = '';
     }
   };
-  
+
   return (
     <div className="bg-gray-800 rounded-lg overflow-hidden shadow-lg transition-transform hover:scale-105 relative">
        {texture.isReplaced && (
@@ -72,6 +73,7 @@ const TextureCard: React.FC<{
 function App() {
   const [vrmFile, setVrmFile] = useState<File | null>(null);
   const [vrmData, setVrmData] = useState<VrmData | null>(null);
+  const [vrmPreviewBuffer, setVrmPreviewBuffer] = useState<ArrayBuffer | null>(null);
   const [textures, setTextures] = useState<TextureInfo[]>([]);
   const [resizeOptions, setResizeOptions] = useState<Map<number, number>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
@@ -82,6 +84,7 @@ function App() {
     textures.forEach(t => URL.revokeObjectURL(t.blobUrl));
     setVrmFile(null);
     setVrmData(null);
+    setVrmPreviewBuffer(null);
     setTextures([]);
     setResizeOptions(new Map());
     setIsLoading(false);
@@ -97,7 +100,7 @@ function App() {
       setError('Invalid file type. Please upload a .vrm file.');
       return;
     }
-    
+
     resetState();
     setIsLoading(true);
     setStatusMessage('Parsing VRM file...');
@@ -105,7 +108,8 @@ function App() {
     setVrmFile(file);
 
     try {
-      const arrayBuffer = await file.arrayBuffer();
+    const arrayBuffer = await file.arrayBuffer();
+    setVrmPreviewBuffer(arrayBuffer);
       const { json, bin } = parseGlb(arrayBuffer);
       setVrmData({ json, bin });
 
@@ -156,7 +160,7 @@ function App() {
     };
     img.src = newBlobUrl;
   }, []);
-  
+
   const handleGlobalResize = useCallback((size: number) => {
       const newOptions = new Map<number, number>();
       if (size === 0) {
@@ -183,12 +187,12 @@ function App() {
 
     const imagesToProcess = new Map<number, { data: ArrayBuffer; mimeType: string }>();
     const tasks: Promise<void>[] = [];
-    
+
     const replacedTextures = textures.filter(t => t.isReplaced);
     const resizedTextureOptions = Array.from(resizeOptions.entries()).filter(([, size]) => size > 0);
     const totalToProcess = replacedTextures.length + resizedTextureOptions.length;
     let processedCount = 0;
-    
+
     setStatusMessage(`Processing textures... (0/${totalToProcess})`);
 
     // Handle replaced textures
@@ -222,7 +226,7 @@ function App() {
 
       setStatusMessage('Rebuilding VRM file...');
       const newGlbBuffer = rebuildGlb(vrmData.json, vrmData.bin, imagesToProcess);
-      
+
       const blob = new Blob([newGlbBuffer], { type: 'model/gltf-binary' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -233,7 +237,7 @@ function App() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
+
       setStatusMessage('Download complete! You can now reset and process another file.');
     // FIX: Switched to a type-safe catch block to handle unknown error types.
     } catch (e) {
@@ -285,6 +289,16 @@ function App() {
               <strong className="font-bold">Error: </strong>
               <span className="block sm:inline">{error}</span>
             </div>
+          )}
+
+          {vrmPreviewBuffer && (
+            <section className="mb-6">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h2 className="text-2xl font-semibold text-white">Model Preview</h2>
+                <p className="text-sm text-gray-400">Orbit with mouse / pinch to zoom</p>
+              </div>
+              <VrmViewer arrayBuffer={vrmPreviewBuffer} />
+            </section>
           )}
 
           {textures.length === 0 && !isLoading && (
