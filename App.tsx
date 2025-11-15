@@ -7,6 +7,8 @@ import VrmViewer from './components/VrmViewer';
 import { parseGlb, extractTextures, resizeImage, rebuildGlb } from './services/vrmService';
 import { TEXTURE_SIZES } from './constants/textureSizes';
 
+type RightTabId = 'metadata' | 'thumbnail' | 'textures';
+
 function App() {
   const [vrmFile, setVrmFile] = useState<File | null>(null);
   const [vrmData, setVrmData] = useState<VrmData | null>(null);
@@ -20,6 +22,7 @@ function App() {
   const [isInitialUploadLoading, setIsInitialUploadLoading] = useState(false);
   const [vrmMetadata, setVrmMetadata] = useState<VrmMeta | null>(null);
   const [metadataThumbnailImageIndex, setMetadataThumbnailImageIndex] = useState<number | null>(null);
+  const [activeRightTab, setActiveRightTab] = useState<RightTabId>('metadata');
 
   const statusMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const metadataThumbnailInputRef = useRef<HTMLInputElement>(null);
@@ -62,6 +65,7 @@ function App() {
     setIsInitialUploadLoading(false);
     setVrmMetadata(null);
     setMetadataThumbnailImageIndex(null);
+    setActiveRightTab('metadata');
   }, [textures, updateStatusMessage]);
 
   const handleFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -421,6 +425,12 @@ function App() {
     </div>
   );
 
+  const rightTabs: { id: RightTabId; label: string }[] = [
+    { id: 'metadata', label: 'Metadata' },
+    { id: 'thumbnail', label: 'Thumbnail' },
+    { id: 'textures', label: 'Textures' },
+  ];
+
   const hasTextures = textures.length > 0;
   const showModelSections = hasFinishedInitialLoad && !isInitialUploadLoading;
 
@@ -458,7 +468,7 @@ function App() {
               </label>
             </section>
           ) : (
-            <div className="grid gap-6 xl:grid-cols-2">
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
               <section className="bg-gray-800 rounded-lg p-4 border border-gray-700">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <h2 className="text-2xl font-semibold text-white">Model Preview</h2>
@@ -467,109 +477,134 @@ function App() {
                 <div className="min-h-[360px]">
                   {vrmPreviewBuffer && <VrmViewer arrayBuffer={vrmPreviewBuffer} />}
                 </div>
-                {vrmMetadata && (
-                  <div className="mt-6 rounded-lg border border-gray-700 bg-gray-900 p-4">
-                    <div className="mb-3 flex items-center justify-between gap-2">
-                      <h3 className="text-lg font-semibold text-white">Model Metadata</h3>
-                      <span className="text-xs uppercase tracking-wide text-gray-500">Read-only</span>
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-[1fr,auto]">
-                      <div className="grid gap-3 sm:grid-cols-2">
+              </section>
+
+              <section className="bg-gray-800 rounded-lg border border-gray-700 flex flex-col">
+                <div className="flex flex-wrap gap-2 border-b border-gray-700 px-4 py-3">
+                  {rightTabs.map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveRightTab(tab.id)}
+                      className={`flex-1 rounded-md border border-transparent px-3 py-2 text-sm font-semibold transition-colors ${
+                        activeRightTab === tab.id
+                          ? 'bg-gray-900 border-blue-500 text-white'
+                          : 'bg-gray-900/60 text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="space-y-4 p-4">
+                  {activeRightTab === 'metadata' ? (
+                    vrmMetadata ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-lg font-semibold text-white">Model Metadata</h3>
+                          <span className="text-xs uppercase tracking-wide text-gray-500">Read-only</span>
+                        </div>
                         {metadataFields.length > 0 ? (
-                          metadataFields.map(field => (
-                            <div key={field.label} className="flex flex-col gap-1 rounded border border-gray-800 bg-gray-800/60 px-3 py-2">
-                              <dt className="text-[11px] uppercase tracking-wide text-gray-400">{field.label}</dt>
-                              <dd className="text-sm text-gray-200">{field.value}</dd>
-                            </div>
-                          ))
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {metadataFields.map(field => (
+                              <div key={field.label} className="flex flex-col gap-1 rounded border border-gray-800 bg-gray-800/60 px-3 py-2">
+                                <dt className="text-[11px] uppercase tracking-wide text-gray-400">{field.label}</dt>
+                                <dd className="text-sm text-gray-200">{field.value}</dd>
+                              </div>
+                            ))}
+                          </div>
                         ) : (
                           <p className="text-sm text-gray-400">No metadata fields were provided in this VRM.</p>
                         )}
                       </div>
-                      <div className="flex flex-col items-center gap-3 text-center">
-                        <div className="relative h-32 w-32 overflow-hidden rounded border border-gray-700 bg-gray-800">
-                          {metadataThumbnailTexture ? (
-                            <img
-                              src={metadataThumbnailTexture.blobUrl}
-                              alt="Model thumbnail"
-                              className="h-full w-full object-contain"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-gray-800 px-2 text-center text-xs text-gray-400">
-                              No thumbnail defined
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-400">
-                          {metadataThumbnailTexture?.isReplaced ? 'Custom thumbnail applied' : 'Current thumbnail'}
-                        </p>
-                        <input
-                          type="file"
-                          ref={metadataThumbnailInputRef}
-                          className="hidden"
-                          accept="image/png, image/jpeg"
-                          onChange={handleMetadataThumbnailSelected}
-                        />
+                    ) : (
+                      <p className="text-sm text-gray-400">No metadata was provided in this VRM.</p>
+                    )
+                  ) : activeRightTab === 'thumbnail' ? (
+                    <div className="flex flex-col items-center gap-3 text-center">
+                      <div className="relative h-32 w-32 overflow-hidden rounded border border-gray-700 bg-gray-800">
+                        {metadataThumbnailTexture ? (
+                          <img
+                            src={metadataThumbnailTexture.blobUrl}
+                            alt="Model thumbnail"
+                            className="h-full w-full object-contain"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-gray-800 px-2 text-center text-xs text-gray-400">
+                            No thumbnail defined
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400">
+                        {metadataThumbnailTexture?.isReplaced ? 'Custom thumbnail applied' : 'Current thumbnail'}
+                      </p>
+                      <input
+                        type="file"
+                        ref={metadataThumbnailInputRef}
+                        className="hidden"
+                        accept="image/png, image/jpeg"
+                        onChange={handleMetadataThumbnailSelected}
+                      />
+                      <button
+                        onClick={handleMetadataThumbnailClick}
+                        disabled={metadataThumbnailImageIndex === null}
+                        className="w-full rounded-lg border border-gray-600 bg-gray-700 px-4 py-2 text-sm font-semibold text-white transition-colors enabled:hover:border-blue-500 enabled:hover:text-blue-200 disabled:opacity-50"
+                      >
+                        {metadataThumbnailImageIndex === null ? 'Thumbnail not defined' : 'Upload new thumbnail'}
+                      </button>
+                      <p className="text-sm text-gray-400 max-w-sm">
+                        Upload a replacement thumbnail to keep metadata in sync with your model preview.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="bg-gray-900 rounded-lg border border-gray-800 p-4 flex flex-col gap-4">
                         <button
-                          onClick={handleMetadataThumbnailClick}
-                          disabled={metadataThumbnailImageIndex === null}
-                          className="w-full rounded-lg border border-gray-600 bg-gray-700 px-4 py-2 text-sm font-semibold text-white transition-colors enabled:hover:border-blue-500 enabled:hover:text-blue-200 disabled:opacity-50"
+                          onClick={handlePreviewUpdate}
+                          disabled={changesCount === 0 || !hasTextures}
+                          className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 transition-colors"
                         >
-                          {metadataThumbnailImageIndex === null ? 'Thumbnail not defined' : 'Upload new thumbnail'}
+                          Apply to Preview
+                        </button>
+                        <GlobalResizeControl />
+                      </div>
+                      {hasTextures ? (
+                        <div className="max-h-[55vh] overflow-y-auto pr-2">
+                          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-1">
+                            {textures.map(texture => (
+                              <TextureCard
+                                key={texture.index}
+                                texture={texture}
+                                selectedSize={resizeOptions.get(texture.index) || 0}
+                                onSizeChange={size => handleResizeChange(texture.index, size)}
+                                onReplace={file => handleTextureReplace(texture.index, file)}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-400">No textures were extracted from this VRM.</p>
+                      )}
+                      <div className="flex flex-wrap gap-4">
+                        <button
+                          onClick={handleProcessAndDownload}
+                          disabled={changesCount === 0}
+                          className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 transition-colors"
+                        >
+                          <DownloadIcon className="w-5 h-5" />
+                          Process &amp; Download ({changesCount} {changesCount === 1 ? 'change' : 'changes'})
+                        </button>
+                        <button
+                          onClick={resetState}
+                          className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 transition-colors"
+                        >
+                          <ResetIcon className="w-5 h-5" />
+                          Reset
                         </button>
                       </div>
                     </div>
-                  </div>
-                )}
-                {!isLoading && hasTextures && (
-                  <div className="mt-4 flex flex-wrap gap-4">
-                    <button
-                      onClick={handleProcessAndDownload}
-                      disabled={changesCount === 0}
-                      className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 transition-colors"
-                    >
-                      <DownloadIcon className="w-5 h-5" />
-                      Process & Download ({changesCount} {changesCount === 1 ? 'change' : 'changes'})
-                    </button>
-                    <button
-                      onClick={resetState}
-                      className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 transition-colors"
-                    >
-                      <ResetIcon className="w-5 h-5" />
-                      Reset
-                    </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </section>
-
-              {hasTextures && (
-                <section className="flex flex-col gap-6">
-                  <div className="bg-gray-800 rounded-lg p-4 flex flex-col gap-4">
-                    <button
-                      onClick={handlePreviewUpdate}
-                      disabled={changesCount === 0}
-                      className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 transition-colors"
-                    >
-                      Apply to Preview
-                    </button>
-                    <GlobalResizeControl />
-                  </div>
-
-                  <div className="max-h-[60vh] overflow-y-auto pr-2">
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-1">
-                      {textures.map(texture => (
-                        <TextureCard
-                          key={texture.index}
-                          texture={texture}
-                          selectedSize={resizeOptions.get(texture.index) || 0}
-                          onSizeChange={size => handleResizeChange(texture.index, size)}
-                          onReplace={file => handleTextureReplace(texture.index, file)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </section>
-              )}
             </div>
           )}
         </main>
