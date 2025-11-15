@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type { TextureInfo, VrmData } from './types';
 import Spinner from './components/Spinner';
 import { DownloadIcon, ResetIcon, UploadIcon } from './components/icons';
@@ -80,6 +80,32 @@ function App() {
   const [statusMessage, setStatusMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  const statusMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelStatusMessageTimer = useCallback(() => {
+    if (statusMessageTimerRef.current) {
+      clearTimeout(statusMessageTimerRef.current);
+      statusMessageTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => cancelStatusMessageTimer, [cancelStatusMessageTimer]);
+
+  const updateStatusMessage = useCallback(
+    (message: string, autoClearMs?: number) => {
+      cancelStatusMessageTimer();
+      setStatusMessage(message);
+
+      if (autoClearMs && message) {
+        statusMessageTimerRef.current = setTimeout(() => {
+          setStatusMessage(current => (current === message ? '' : current));
+          statusMessageTimerRef.current = null;
+        }, autoClearMs);
+      }
+    },
+    [cancelStatusMessageTimer]
+  );
+
   const resetState = useCallback(() => {
     textures.forEach(t => URL.revokeObjectURL(t.blobUrl));
     setVrmFile(null);
@@ -88,9 +114,9 @@ function App() {
     setTextures([]);
     setResizeOptions(new Map());
     setIsLoading(false);
-    setStatusMessage('');
+    updateStatusMessage('');
     setError(null);
-  }, [textures]);
+  }, [textures, updateStatusMessage]);
 
   const handleFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -103,7 +129,7 @@ function App() {
 
     resetState();
     setIsLoading(true);
-    setStatusMessage('Parsing VRM file...');
+    updateStatusMessage('Parsing VRM file...');
     setError(null);
     setVrmFile(file);
 
@@ -113,7 +139,7 @@ function App() {
       const { json, bin } = parseGlb(arrayBuffer);
       setVrmData({ json, bin });
 
-      setStatusMessage('Extracting textures...');
+      updateStatusMessage('Extracting textures...');
       const extracted = await extractTextures(json, bin);
       setTextures(extracted);
 
@@ -122,7 +148,7 @@ function App() {
       resetState();
     } finally {
       setIsLoading(false);
-      setStatusMessage('');
+      updateStatusMessage('');
     }
   }, [resetState]);
 
@@ -241,19 +267,19 @@ function App() {
 
     setIsLoading(true);
     setError(null);
-    setStatusMessage('Processing textures...');
+    updateStatusMessage('Processing textures...');
 
     try {
       const processedBuffer = await buildProcessedGlb((processed, total) => {
-        setStatusMessage(`Processing textures... (${processed}/${total})`);
+        updateStatusMessage(`Processing textures... (${processed}/${total})`);
       });
 
       if (!processedBuffer) {
-        setStatusMessage('No texture changes to process.');
+        updateStatusMessage('No texture changes to process.');
         return;
       }
 
-      setStatusMessage('Rebuilding VRM file...');
+      updateStatusMessage('Rebuilding VRM file...');
       const blob = new Blob([processedBuffer], { type: 'model/gltf-binary' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -265,14 +291,14 @@ function App() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      setStatusMessage('Download complete! You can now reset and process another file.');
+      updateStatusMessage('Download complete! You can now reset and process another file.');
     } catch (e) {
       if (e instanceof Error) {
         setError(`An error occurred during processing: ${e.message}`);
       } else {
         setError('An unknown error occurred during processing.');
       }
-      setStatusMessage('');
+      updateStatusMessage('');
     } finally {
       setIsLoading(false);
     }
@@ -283,27 +309,27 @@ function App() {
 
     setIsLoading(true);
     setError(null);
-    setStatusMessage('Processing textures...');
+    updateStatusMessage('Processing textures...');
 
     try {
       const processedBuffer = await buildProcessedGlb((processed, total) => {
-        setStatusMessage(`Processing textures... (${processed}/${total})`);
+        updateStatusMessage(`Processing textures... (${processed}/${total})`);
       });
 
       if (!processedBuffer) {
-        setStatusMessage('No texture changes to preview.');
+        updateStatusMessage('No texture changes to preview.');
         return;
       }
 
       setVrmPreviewBuffer(processedBuffer);
-      setStatusMessage('Preview updated with your texture changes.');
+      updateStatusMessage('Preview updated with your texture changes.', 3000);
     } catch (e) {
       if (e instanceof Error) {
         setError(`An error occurred while updating the preview: ${e.message}`);
       } else {
         setError('An unknown error occurred while updating the preview.');
       }
-      setStatusMessage('');
+      updateStatusMessage('');
     } finally {
       setIsLoading(false);
     }
