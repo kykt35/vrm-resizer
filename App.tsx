@@ -474,15 +474,26 @@ function App() {
                   <h2 className="text-2xl font-semibold text-white">Model Preview</h2>
                   <p className="text-sm text-gray-400">Orbit with mouse / pinch to zoom</p>
                 </div>
-                <div className="mb-4 flex flex-wrap gap-3">
+                <div className="mb-4 flex flex-wrap gap-3 justify-between">
+                  <div className="flex flex-wrap gap-3">
+
+                  <button
+                    onClick={handlePreviewUpdate}
+                    disabled={changesCount === 0 || !hasTextures}
+                    className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg transition-colors"
+                  >
+                    Apply ({changesCount} {changesCount === 1 ? 'change' : 'changes'})
+                  </button>
                   <button
                     onClick={handleProcessAndDownload}
                     disabled={changesCount === 0}
                     className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 transition-colors"
                   >
                     <DownloadIcon className="w-5 h-5" />
-                    Process &amp; Download ({changesCount} {changesCount === 1 ? 'change' : 'changes'})
+                    Download
                   </button>
+
+                  </div>
                   <button
                     onClick={resetState}
                     className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 transition-colors"
@@ -575,13 +586,6 @@ function App() {
                   ) : (
                     <div className="space-y-4">
                       <div className="bg-gray-900 rounded-lg border border-gray-800 p-4 flex flex-col gap-4">
-                        <button
-                          onClick={handlePreviewUpdate}
-                          disabled={changesCount === 0 || !hasTextures}
-                          className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 transition-colors"
-                        >
-                          Apply to Preview
-                        </button>
                         <GlobalResizeControl />
                       </div>
                       {hasTextures ? (
