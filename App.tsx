@@ -130,6 +130,57 @@ function App() {
     setResizeOptions(prev => new Map(prev).set(textureIndex, size));
   }, []);
 
+  const buildProcessedGlb = useCallback(async (onProgress?: (processed: number, total: number) => void): Promise<ArrayBuffer | null> => {
+    if (!vrmData) {
+      return null;
+    }
+
+    const replacedTextures = textures.filter(t => t.isReplaced);
+    const resizedTextureOptions = ([...resizeOptions.entries()] as [number, number][])
+      .filter(([, size]) => size > 0);
+
+    const totalToProcess = replacedTextures.length + resizedTextureOptions.length;
+    let processedCount = 0;
+    onProgress?.(processedCount, totalToProcess);
+
+    const imagesToProcess = new Map<number, { data: ArrayBuffer; mimeType: string }>();
+    const tasks: Promise<void>[] = [];
+
+    for (const texture of replacedTextures) {
+      const task = fetch(texture.blobUrl)
+        .then(res => res.arrayBuffer())
+        .then(buffer => {
+          imagesToProcess.set(texture.index, { data: buffer, mimeType: texture.mimeType });
+          processedCount++;
+          onProgress?.(processedCount, totalToProcess);
+        });
+      tasks.push(task);
+    }
+
+    for (const [textureIndex, size] of resizedTextureOptions) {
+      const texture = textures.find(t => t.index === textureIndex);
+      if (!texture || texture.isReplaced) {
+        continue;
+      }
+
+      const task = resizeImage(texture.blobUrl, texture.mimeType, size)
+        .then(resizedData => {
+          imagesToProcess.set(textureIndex, { data: resizedData, mimeType: texture.mimeType });
+          processedCount++;
+          onProgress?.(processedCount, totalToProcess);
+        });
+      tasks.push(task);
+    }
+
+    await Promise.all(tasks);
+
+    if (totalToProcess === 0) {
+      return null;
+    }
+
+    return rebuildGlb(vrmData.json, vrmData.bin, imagesToProcess);
+  }, [vrmData, resizeOptions, textures]);
+
   const handleTextureReplace = useCallback(async (textureIndex: number, file: File) => {
     const newBlobUrl = URL.createObjectURL(file);
     const img = new Image();
@@ -179,55 +230,31 @@ function App() {
       setResizeOptions(newOptions);
   }, [textures]);
 
-  const handleProcessAndDownload = async () => {
+  const changesCount = useMemo(() => {
+    const resizedCount = Array.from(resizeOptions.values()).filter((size: number) => size > 0).length;
+    const replacedCount = textures.filter(t => t.isReplaced).length;
+    return resizedCount + replacedCount;
+  }, [resizeOptions, textures]);
+
+  const handleProcessAndDownload = useCallback(async () => {
     if (!vrmData) return;
 
     setIsLoading(true);
     setError(null);
-
-    const imagesToProcess = new Map<number, { data: ArrayBuffer; mimeType: string }>();
-    const tasks: Promise<void>[] = [];
-
-    const replacedTextures = textures.filter(t => t.isReplaced);
-    const resizedTextureOptions = ([...resizeOptions.entries()] as [number, number][]).filter(([, size]) => size > 0);
-    const totalToProcess = replacedTextures.length + resizedTextureOptions.length;
-    let processedCount = 0;
-
-    setStatusMessage(`Processing textures... (0/${totalToProcess})`);
-
-    // Handle replaced textures
-    for (const texture of replacedTextures) {
-      const task = fetch(texture.blobUrl)
-        .then(res => res.arrayBuffer())
-        .then(buffer => {
-          imagesToProcess.set(texture.index, { data: buffer, mimeType: texture.mimeType });
-          processedCount++;
-          setStatusMessage(`Processing textures... (${processedCount}/${totalToProcess})`);
-        });
-      tasks.push(task);
-    }
-
-    // Handle resized textures
-    for (const [textureIndex, size] of resizedTextureOptions) {
-      const texture = textures.find(t => t.index === textureIndex);
-      if (texture && !texture.isReplaced) {
-          const task = resizeImage(texture.blobUrl, texture.mimeType, size)
-              .then(resizedData => {
-                  imagesToProcess.set(textureIndex, { data: resizedData, mimeType: texture.mimeType });
-                  processedCount++;
-                  setStatusMessage(`Processing textures... (${processedCount}/${totalToProcess})`);
-              });
-          tasks.push(task);
-      }
-    }
+    setStatusMessage('Processing textures...');
 
     try {
-      await Promise.all(tasks);
+      const processedBuffer = await buildProcessedGlb((processed, total) => {
+        setStatusMessage(`Processing textures... (${processed}/${total})`);
+      });
+
+      if (!processedBuffer) {
+        setStatusMessage('No texture changes to process.');
+        return;
+      }
 
       setStatusMessage('Rebuilding VRM file...');
-      const newGlbBuffer = rebuildGlb(vrmData.json, vrmData.bin, imagesToProcess);
-
-      const blob = new Blob([newGlbBuffer], { type: 'model/gltf-binary' });
+      const blob = new Blob([processedBuffer], { type: 'model/gltf-binary' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -239,24 +266,48 @@ function App() {
       URL.revokeObjectURL(url);
 
       setStatusMessage('Download complete! You can now reset and process another file.');
-    // FIX: Switched to a type-safe catch block to handle unknown error types.
     } catch (e) {
-        if (e instanceof Error) {
-            setError(`An error occurred during processing: ${e.message}`);
-        } else {
-            setError('An unknown error occurred during processing.');
-        }
-        setStatusMessage('');
+      if (e instanceof Error) {
+        setError(`An error occurred during processing: ${e.message}`);
+      } else {
+        setError('An unknown error occurred during processing.');
+      }
+      setStatusMessage('');
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
-  };
+  }, [vrmData, vrmFile, buildProcessedGlb]);
 
-  const changesCount = useMemo(() => {
-    const resizedCount = Array.from(resizeOptions.values()).filter((size: number) => size > 0).length;
-    const replacedCount = textures.filter(t => t.isReplaced).length;
-    return resizedCount + replacedCount;
-  }, [resizeOptions, textures]);
+  const handlePreviewUpdate = useCallback(async () => {
+    if (!vrmData || changesCount === 0) return;
+
+    setIsLoading(true);
+    setError(null);
+    setStatusMessage('Processing textures...');
+
+    try {
+      const processedBuffer = await buildProcessedGlb((processed, total) => {
+        setStatusMessage(`Processing textures... (${processed}/${total})`);
+      });
+
+      if (!processedBuffer) {
+        setStatusMessage('No texture changes to preview.');
+        return;
+      }
+
+      setVrmPreviewBuffer(processedBuffer);
+      setStatusMessage('Preview updated with your texture changes.');
+    } catch (e) {
+      if (e instanceof Error) {
+        setError(`An error occurred while updating the preview: ${e.message}`);
+      } else {
+        setError('An unknown error occurred while updating the preview.');
+      }
+      setStatusMessage('');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [vrmData, changesCount, buildProcessedGlb]);
 
   const GlobalResizeControl = () => (
     <div className="flex flex-col sm:flex-row items-center gap-2">
@@ -352,6 +403,13 @@ function App() {
                       >
                         <ResetIcon className="w-5 h-5" />
                         Reset
+                      </button>
+                      <button
+                        onClick={handlePreviewUpdate}
+                        disabled={changesCount === 0}
+                        className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 transition-colors"
+                      >
+                        Apply to Preview
                       </button>
                     </div>
                     <GlobalResizeControl />
