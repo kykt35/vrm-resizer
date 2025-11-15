@@ -68,7 +68,14 @@ const VrmViewer: React.FC<VrmViewerProps> = ({ arrayBuffer }) => {
 
         vrmModel = vrm;
         VRMUtils.removeUnnecessaryJoints(vrm.scene);
-        vrm.scene.rotation.y = Math.PI;
+
+        const boundingBox = new THREE.Box3().setFromObject(vrm.scene);
+        const modelCenter = boundingBox.getCenter(new THREE.Vector3());
+
+        vrm.scene.lookAt(new THREE.Vector3(camera.position.x, modelCenter.y, camera.position.z));
+        controls.target.copy(modelCenter);
+        controls.update();
+
         scene.add(vrm.scene);
         setStatus('ready');
       },
