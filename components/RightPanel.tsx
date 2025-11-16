@@ -1,14 +1,10 @@
 import React from 'react';
 import type { TextureInfo, VrmMeta } from '../types';
+import type { MetadataField } from '../hooks/useVrmMetadata';
 import TextureCard from './TextureCard';
 import GlobalResizeControl from './GlobalResizeControl';
 
 export type RightTabId = 'metadata' | 'thumbnail' | 'textures';
-
-type MetadataField = {
-  label: string;
-  value: React.ReactNode;
-};
 
 type MetadataTabProps = {
   metadata: VrmMeta | null;
@@ -28,7 +24,20 @@ const MetadataTab = ({ metadata, fields }: MetadataTabProps) => (
             {fields.map(field => (
               <div key={field.label} className="flex flex-col gap-1 rounded border border-gray-800 bg-gray-800/60 px-3 py-2">
                 <dt className="text-[11px] uppercase tracking-wide text-gray-400">{field.label}</dt>
-                <dd className="text-sm text-gray-200">{field.value}</dd>
+                <dd className="text-sm text-gray-200">
+                  {field.linkUrl ? (
+                    <a
+                      href={field.linkUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-400 hover:text-blue-300 transition-colors"
+                    >
+                      {field.value}
+                    </a>
+                  ) : (
+                    field.value
+                  )}
+                </dd>
               </div>
             ))}
           </div>

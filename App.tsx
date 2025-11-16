@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import type { TextureInfo, VrmData, VrmMeta } from './types';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
+import type { TextureInfo, VrmData } from './types';
 import ModelPreview from './components/ModelPreview';
 import RightPanel, { type RightTabId } from './components/RightPanel';
 import AppHeader from './components/AppHeader';
@@ -7,6 +7,8 @@ import ErrorBanner from './components/ErrorBanner';
 import LoadingIndicator from './components/LoadingIndicator';
 import UploadPrompt from './components/UploadPrompt';
 import { parseGlb, extractTextures, resizeImage, rebuildGlb } from './services/vrmService';
+import { useStatusMessage } from './hooks/useStatusMessage';
+import { useVrmMetadata } from './hooks/useVrmMetadata';
 
 function App() {
   const [vrmFile, setVrmFile] = useState<File | null>(null);
@@ -15,41 +17,22 @@ function App() {
   const [textures, setTextures] = useState<TextureInfo[]>([]);
   const [resizeOptions, setResizeOptions] = useState<Map<number, number>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
-  const [statusMessage, setStatusMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [hasFinishedInitialLoad, setHasFinishedInitialLoad] = useState(false);
   const [isInitialUploadLoading, setIsInitialUploadLoading] = useState(false);
-  const [vrmMetadata, setVrmMetadata] = useState<VrmMeta | null>(null);
-  const [metadataThumbnailImageIndex, setMetadataThumbnailImageIndex] = useState<number | null>(null);
   const [activeRightTab, setActiveRightTab] = useState<RightTabId>('metadata');
   const [globalResizeValue, setGlobalResizeValue] = useState(0);
 
-  const statusMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const metadataThumbnailInputRef = useRef<HTMLInputElement>(null);
 
-  const cancelStatusMessageTimer = useCallback(() => {
-    if (statusMessageTimerRef.current) {
-      clearTimeout(statusMessageTimerRef.current);
-      statusMessageTimerRef.current = null;
-    }
-  }, []);
+  const { statusMessage, updateStatusMessage, clearStatusMessage } = useStatusMessage();
 
-  useEffect(() => cancelStatusMessageTimer, [cancelStatusMessageTimer]);
-
-  const updateStatusMessage = useCallback(
-    (message: string, autoClearMs?: number) => {
-      cancelStatusMessageTimer();
-      setStatusMessage(message);
-
-      if (autoClearMs && message) {
-        statusMessageTimerRef.current = setTimeout(() => {
-          setStatusMessage(current => (current === message ? '' : current));
-          statusMessageTimerRef.current = null;
-        }, autoClearMs);
-      }
-    },
-    [cancelStatusMessageTimer]
-  );
+  const {
+    vrmMetadata,
+    metadataThumbnailImageIndex,
+    metadataThumbnailTexture,
+    metadataFields,
+  } = useVrmMetadata(vrmData, textures);
 
   const resetState = useCallback(() => {
     textures.forEach(t => URL.revokeObjectURL(t.blobUrl));
@@ -59,14 +42,12 @@ function App() {
     setTextures([]);
     setResizeOptions(new Map());
     setIsLoading(false);
-    updateStatusMessage('');
+    clearStatusMessage();
     setError(null);
     setHasFinishedInitialLoad(false);
     setIsInitialUploadLoading(false);
-    setVrmMetadata(null);
-    setMetadataThumbnailImageIndex(null);
     setActiveRightTab('metadata');
-  }, [textures, updateStatusMessage]);
+  }, [textures, clearStatusMessage]);
 
   const handleFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -85,8 +66,8 @@ function App() {
     setVrmFile(file);
 
     try {
-    const arrayBuffer = await file.arrayBuffer();
-    setVrmPreviewBuffer(arrayBuffer);
+      const arrayBuffer = await file.arrayBuffer();
+      setVrmPreviewBuffer(arrayBuffer);
       const { json, bin } = parseGlb(arrayBuffer);
       setVrmData({ json, bin });
 
@@ -101,41 +82,9 @@ function App() {
     } finally {
       setIsLoading(false);
       setIsInitialUploadLoading(false);
-      updateStatusMessage('');
+      clearStatusMessage();
     }
-  }, [resetState]);
-
-  useEffect(() => {
-    if (!vrmData) {
-      setVrmMetadata(null);
-      setMetadataThumbnailImageIndex(null);
-      return;
-    }
-
-    const extensions = vrmData.json?.extensions;
-    const meta =
-      (extensions?.VRM?.meta as VrmMeta | undefined) ??
-      (extensions?.VRMC_vrm?.meta as VrmMeta | undefined);
-    if (!meta) {
-      setVrmMetadata(null);
-      setMetadataThumbnailImageIndex(null);
-      return;
-    }
-
-    const textureIndex =
-      typeof meta.texture === 'number'
-        ? meta.texture
-        : typeof meta.thumbnailImage === 'number'
-        ? meta.thumbnailImage
-        : null;
-    const texturesDef = vrmData.json?.textures;
-    const imageIndex =
-      textureIndex !== null && texturesDef?.[textureIndex]?.source !== undefined
-        ? texturesDef[textureIndex].source
-        : null;
-    setVrmMetadata(meta);
-    setMetadataThumbnailImageIndex(imageIndex);
-  }, [vrmData]);
+  }, [resetState, updateStatusMessage, clearStatusMessage]);
 
   const handleResizeChange = useCallback((textureIndex: number, size: number) => {
     setResizeOptions(prev => new Map(prev).set(textureIndex, size));
@@ -222,63 +171,6 @@ function App() {
     };
     img.src = newBlobUrl;
   }, []);
-
-  const metadataThumbnailTexture = useMemo(() => {
-    if (metadataThumbnailImageIndex === null) {
-      return null;
-    }
-    return textures.find(texture => texture.index === metadataThumbnailImageIndex) ?? null;
-  }, [metadataThumbnailImageIndex, textures]);
-
-  const metadataFields = useMemo(() => {
-    if (!vrmMetadata) return [];
-
-    const labelMap: Record<string, string> = {
-      title: 'Title',
-      name: 'Name',
-      version: 'Version',
-      author: 'Author',
-      contactInformation: 'Contact',
-      description: 'Description',
-      reference: 'Reference',
-      allowedUserName: 'Allowed Users',
-      violentUsageName: 'Violent Usage',
-      violentUssageName: 'Violent Usage',
-    };
-
-    const formatLabel = (key: string) => {
-      const spaced = key.replace(/([A-Z])/g, ' $1');
-      return spaced.charAt(0).toUpperCase() + spaced.slice(1);
-    };
-
-    const entries = Object.entries(vrmMetadata)
-      .filter(([key]) => key !== 'texture' && key !== 'licenseName' && key !== 'licenseUrl')
-      .map(([key, value]) => ({
-        label: labelMap[key] || formatLabel(key),
-        value,
-      }))
-      .filter(field => field.value !== undefined && field.value !== null && field.value !== '');
-
-    if (vrmMetadata.licenseName || vrmMetadata.licenseUrl) {
-      const licenseLabel = vrmMetadata.licenseName || 'License';
-      const licenseValue = vrmMetadata.licenseUrl ? (
-        <a
-          href={vrmMetadata.licenseUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="text-blue-400 hover:text-blue-300 transition-colors"
-        >
-          {licenseLabel}
-        </a>
-      ) : (
-        licenseLabel
-      );
-
-      entries.push({ label: 'License', value: licenseValue });
-    }
-
-    return entries;
-  }, [vrmMetadata]);
 
   const handleMetadataThumbnailUpload = useCallback(
     (file: File) => {
@@ -369,11 +261,11 @@ function App() {
       } else {
         setError('An unknown error occurred during processing.');
       }
-      updateStatusMessage('');
+      clearStatusMessage();
     } finally {
       setIsLoading(false);
     }
-  }, [vrmData, vrmFile, buildProcessedGlb]);
+  }, [vrmData, vrmFile, buildProcessedGlb, updateStatusMessage, clearStatusMessage]);
 
   const handlePreviewUpdate = useCallback(async () => {
     if (!vrmData || changesCount === 0) return;
@@ -400,11 +292,11 @@ function App() {
       } else {
         setError('An unknown error occurred while updating the preview.');
       }
-      updateStatusMessage('');
+      clearStatusMessage();
     } finally {
       setIsLoading(false);
     }
-  }, [vrmData, changesCount, buildProcessedGlb]);
+  }, [vrmData, changesCount, buildProcessedGlb, updateStatusMessage, clearStatusMessage]);
 
   const rightTabs: { id: RightTabId; label: string }[] = [
     { id: 'metadata', label: 'Metadata' },
