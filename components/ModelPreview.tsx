@@ -1,5 +1,5 @@
 import React from 'react';
-import { DownloadIcon, ResetIcon } from './icons';
+import { DownloadIcon, PreviewIcon, ResetIcon } from './icons';
 import VrmViewer from './VrmViewer';
 
 type ModelPreviewProps = {
@@ -33,19 +33,21 @@ const ModelPreview = ({
         <button
           onClick={onPreviewUpdate}
           disabled={changesCount === 0 || !hasTextures}
-          className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg transition-colors"
+          className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg transition-colors inline-flex items-center gap-2"
         >
-          Apply ({changesCount} {changesCount === 1 ? 'change' : 'changes'})
+          <PreviewIcon className="w-5 h-5" />
+          Preview
         </button>
+        </div>
         <button
           onClick={onProcessAndDownload}
           disabled={changesCount === 0}
           className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 transition-colors"
         >
           <DownloadIcon className="w-5 h-5" />
-          Download
+          Download ({changesCount} {changesCount === 1 ? 'change' : 'changes'})
         </button>
-      </div>
+
       <button
         onClick={onReset}
         className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg inline-flex items-center gap-2 transition-colors"
