@@ -1,9 +1,11 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type { TextureInfo, VrmData, VrmMeta } from './types';
-import Spinner from './components/Spinner';
-import { UploadIcon } from './components/icons';
 import ModelPreview from './components/ModelPreview';
 import RightPanel, { type RightTabId } from './components/RightPanel';
+import AppHeader from './components/AppHeader';
+import ErrorBanner from './components/ErrorBanner';
+import LoadingIndicator from './components/LoadingIndicator';
+import UploadPrompt from './components/UploadPrompt';
 import { parseGlb, extractTextures, resizeImage, rebuildGlb } from './services/vrmService';
 
 function App() {
@@ -417,37 +419,15 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-900 text-gray-200 flex flex-col items-center p-4 sm:p-8">
       <div className="w-full max-w-7xl">
-        <header className="text-center mb-8">
-          <h1 className="text-4xl sm:text-5xl font-bold text-white">VRM-KT</h1>
-          <p className="text-lg text-gray-400 mt-2">
-            Lightweight browser tool that parses VRM files, lets you swap thumbnails, and instantly applies texture replacements or resizes.
-          </p>
-        </header>
-
+        <AppHeader />
         <main className="space-y-6">
-          {error && (
-            <div className="bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded-lg relative" role="alert">
-              <strong className="font-bold">Error: </strong>
-              <span className="block sm:inline">{error}</span>
-            </div>
+          {error && <ErrorBanner message={error} />}
+          {(isLoading || statusMessage) && (
+            <LoadingIndicator statusMessage={statusMessage} />
           )}
 
-          {(isLoading || statusMessage) ? (
-            <div className="flex flex-col items-center justify-center bg-gray-800 rounded-lg p-12 text-center">
-              <Spinner className="w-16 h-16 mb-4" />
-              <p className="text-xl text-gray-300">{statusMessage}</p>
-            </div>
-          ) : !showModelSections ? (
-            <section className="bg-gray-800 rounded-lg p-6 border border-gray-700 flex flex-col items-center justify-center gap-4 text-center">
-              <UploadIcon className="w-12 h-12 text-gray-500" />
-              <p className="text-lg text-gray-400 max-w-sm">
-                Upload a VRM file to get started. After the file is parsed we'll show a live preview of your model and the texture controls.
-              </p>
-              <label className="mt-3 inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-                Select File
-                <input type="file" className="hidden" accept=".vrm" onChange={handleFileChange} />
-              </label>
-            </section>
+          {!showModelSections ? (
+            <UploadPrompt onFileChange={handleFileChange} />
           ) : (
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
               <ModelPreview
