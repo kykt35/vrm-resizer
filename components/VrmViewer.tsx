@@ -6,9 +6,10 @@ import { VRMLoaderPlugin, VRMUtils, type VRM } from '@pixiv/three-vrm';
 
 interface VrmViewerProps {
   arrayBuffer: ArrayBuffer;
+  backgroundColor?: string;
 }
 
-const VrmViewer: React.FC<VrmViewerProps> = ({ arrayBuffer }) => {
+const VrmViewer: React.FC<VrmViewerProps> = ({ arrayBuffer, backgroundColor = '#080810' }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -31,7 +32,7 @@ const VrmViewer: React.FC<VrmViewerProps> = ({ arrayBuffer }) => {
     canvasMount.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x080810);
+    scene.background = new THREE.Color(backgroundColor);
 
     const camera = new THREE.PerspectiveCamera(38, (container.clientWidth || 400) / (container.clientHeight || 360), 0.1, 50);
     camera.position.set(0, 1.3, 2.7);
@@ -148,7 +149,7 @@ const VrmViewer: React.FC<VrmViewerProps> = ({ arrayBuffer }) => {
         canvasMount.removeChild(renderer.domElement);
       }
     };
-  }, [arrayBuffer]);
+  }, [arrayBuffer, backgroundColor]);
 
   const overlay =
     status === 'loading'
@@ -158,7 +159,11 @@ const VrmViewer: React.FC<VrmViewerProps> = ({ arrayBuffer }) => {
         : null;
 
   return (
-    <div ref={containerRef} className="relative w-full min-h-[400px] rounded-lg border border-gray-700 bg-[#080810] overflow-hidden">
+    <div
+      ref={containerRef}
+      style={{ backgroundColor }}
+      className="relative w-full min-h-[400px] rounded-lg border border-gray-700 overflow-hidden"
+    >
       <div ref={canvasWrapperRef} className="absolute inset-0 z-0" />
       {overlay && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center text-sm font-medium text-gray-400">

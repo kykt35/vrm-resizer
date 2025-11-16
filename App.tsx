@@ -22,6 +22,7 @@ function App() {
   const [isInitialUploadLoading, setIsInitialUploadLoading] = useState(false);
   const [activeRightTab, setActiveRightTab] = useState<RightTabId>('metadata');
   const [globalResizeValue, setGlobalResizeValue] = useState(0);
+  const [viewerBackgroundColor, setViewerBackgroundColor] = useState('#080810');
 
   const metadataThumbnailInputRef = useRef<HTMLInputElement>(null);
 
@@ -219,6 +220,10 @@ function App() {
       setResizeOptions(newOptions);
   }, [textures]);
 
+  const handleViewerBackgroundColorChange = useCallback((color: string) => {
+    setViewerBackgroundColor(color);
+  }, []);
+
   const changesCount = useMemo(() => {
     const resizedCount = Array.from(resizeOptions.values()).filter((size: number) => size > 0).length;
     const replacedCount = textures.filter(t => t.isReplaced).length;
@@ -329,6 +334,8 @@ function App() {
                 onPreviewUpdate={handlePreviewUpdate}
                 onProcessAndDownload={handleProcessAndDownload}
                 onReset={resetState}
+                viewerBackgroundColor={viewerBackgroundColor}
+                onViewerBackgroundColorChange={handleViewerBackgroundColorChange}
               />
               <RightPanel
                 activeRightTab={activeRightTab}

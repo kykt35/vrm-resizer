@@ -9,6 +9,8 @@ type ModelPreviewProps = {
   onPreviewUpdate: () => Promise<void> | void;
   onProcessAndDownload: () => Promise<void> | void;
   onReset: () => void;
+  viewerBackgroundColor: string;
+  onViewerBackgroundColorChange: (color: string) => void;
 };
 
 const ModelPreview = ({
@@ -18,6 +20,8 @@ const ModelPreview = ({
   onPreviewUpdate,
   onProcessAndDownload,
   onReset,
+  viewerBackgroundColor,
+  onViewerBackgroundColorChange,
 }: ModelPreviewProps) => (
   <section className="bg-gray-800 rounded-lg p-4 border border-gray-700">
     <div className="mb-3 flex items-center justify-between gap-2">
@@ -50,8 +54,23 @@ const ModelPreview = ({
         Reset
       </button>
     </div>
+
     <div className="min-h-[360px]">
-      {vrmPreviewBuffer && <VrmViewer arrayBuffer={vrmPreviewBuffer} />}
+      {vrmPreviewBuffer && (
+        <VrmViewer arrayBuffer={vrmPreviewBuffer} backgroundColor={viewerBackgroundColor} />
+      )}
+    </div>
+    <div className="mb-4 flex items-center gap-3 text-sm text-gray-300 justify-end mt-4">
+      <label htmlFor="viewer-bg-color" className="font-medium text-gray-300">
+        Viewer background
+      </label>
+      <input
+        id="viewer-bg-color"
+        type="color"
+        value={viewerBackgroundColor}
+        onChange={(event) => onViewerBackgroundColorChange(event.target.value)}
+        className="h-8 w-8 rounded border border-gray-600 bg-white p-0 text-gray-900"
+      />
     </div>
   </section>
 );
