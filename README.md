@@ -1,4 +1,4 @@
-# VRM-Kit-Web
+# WEB-VRM-KIT
 
 A lightweight browser-based tool for editing VRM files. Easily parse VRM files and perform texture replacement, resizing, and metadata editing.
 
