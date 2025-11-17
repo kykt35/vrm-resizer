@@ -1,34 +1,135 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# VRM-Kit-Web
 
-# Run and deploy your AI Studio app
+A lightweight browser-based tool for editing VRM files. Easily parse VRM files and perform texture replacement, resizing, and metadata editing.
 
-This contains everything you need to run your app locally.
+## Features
 
-View your app in AI Studio: https://ai.studio/apps/temp/1
+- **VRM File Upload and Parsing**: Load GLB-format VRM files and decompose them into JSON and BIN chunks
+- **Texture Replacement**: Replace existing textures with new images
+- **Texture Resizing**: Change texture sizes individually or in bulk
+- **Metadata Editing**: View and edit VRM file metadata
+- **Thumbnail Replacement**: Change the VRM file's thumbnail image
+- **Real-time Preview**: Preview changes in a 3D viewer before applying them
+- **Processed File Download**: Download the edited VRM file
 
-## Run Locally
+## Tech Stack
 
-**Prerequisites:**  Node.js
+- **React 19** - UI framework
+- **TypeScript** - Type safety
+- **Vite** - Build tool
+- **Three.js** - 3D rendering
+- **@pixiv/three-vrm** - VRM model loading and display
+- **Firebase Hosting** - Deployment
 
+## Setup
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### Prerequisites
 
-## Firebase Hosting Deployment
+- Node.js (Recommended: v18 or higher)
+- npm or yarn
 
-1. Install the Firebase CLI if you haven't already:
-   `npm install -g firebase-tools`
-2. Authenticate and link this repo to your Firebase project:
-   `firebase login && firebase use --add`
-   Replace `YOUR_FIREBASE_PROJECT_ID` in `.firebaserc` if you prefer to set it manually.
-3. Build the production bundle:
-   `npm run build`
-4. Deploy just the hosting targets:
-   `firebase deploy --only hosting`
+### Installation
 
-The `firebase.json` file publishes the `dist` directory and rewrites all routes to `index.html`, which keeps the client-side router intact.
+1. Clone the repository:
+
+```bash
+git clone <repository-url>
+cd vrm-kit
+```
+
+2. Install dependencies:
+
+```bash
+npm install
+```
+
+3. Set up environment variables (if using Firebase):
+
+Create a `.env.local` file and set the following environment variables:
+
+```env
+FIREBASE_API_KEY=your_api_key
+FIREBASE_AUTH_DOMAIN=your_auth_domain
+FIREBASE_PROJECT_ID=your_project_id
+FIREBASE_STORAGE_BUCKET=your_storage_bucket
+FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+FIREBASE_APP_ID=your_app_id
+FIREBASE_MEASUREMENT_ID=your_measurement_id
+```
+
+## Development
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+Open `http://localhost:3000` in your browser.
+
+## Build
+
+Create a production build:
+
+```bash
+npm run build
+```
+
+The build output will be in the `dist` directory.
+
+## Deployment
+
+### Firebase Hosting
+
+1. Install Firebase CLI (if not already installed):
+
+```bash
+npm install -g firebase-tools
+```
+
+2. Log in to Firebase and link your project:
+
+```bash
+firebase login
+firebase use --add
+```
+
+3. Build and deploy:
+
+```bash
+npm run build
+firebase deploy --only hosting
+```
+
+The `firebase.json` file publishes the `dist` directory and rewrites all routes to `index.html` to maintain the client-side router.
+
+## Usage
+
+1. **Upload VRM File**: Select a `.vrm` file on the home screen
+2. **View Metadata**: Check VRM file information in the "Metadata" tab on the right panel
+3. **Change Thumbnail**: Replace the thumbnail image in the "Thumbnail" tab
+4. **Edit Textures**: Replace or resize textures in the "Textures" tab
+5. **Preview**: Apply changes and preview in the 3D viewer
+6. **Download**: Download the processed VRM file
+
+## Project Structure
+
+```text
+vrm-kit/
+├── components/          # React components
+│   ├── AppHeader.tsx
+│   ├── ModelPreview.tsx
+│   ├── RightPanel.tsx
+│   ├── VrmViewer.tsx
+│   └── ...
+├── services/            # Business logic
+│   └── vrmService.ts    # VRM file parsing and processing
+├── hooks/               # Custom hooks
+├── constants/           # Constants
+├── libs/                # Library configuration
+└── types.ts             # TypeScript type definitions
+```
+
+## License
+
+Please refer to the LICENSE file in the repository for license information.
