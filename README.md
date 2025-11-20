@@ -2,6 +2,8 @@
 
 A lightweight browser-based tool for editing VRM files. Easily parse VRM files and perform texture replacement, resizing, and metadata editing.
 
+🌐 **Live Site**: [https://vrm-kit.web.app/](https://vrm-kit.web.app/)
+
 ## Features
 
 - **VRM File Upload and Parsing**: Load GLB-format VRM files and decompose them into JSON and BIN chunks
