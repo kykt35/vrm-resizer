@@ -3,6 +3,7 @@ import type { TextureInfo, VrmData } from './types';
 import ModelPreview from './components/ModelPreview';
 import RightPanel, { type RightTabId } from './components/RightPanel';
 import AppHeader from './components/AppHeader';
+import AppFooter from './components/AppFooter';
 import ErrorBanner from './components/ErrorBanner';
 import LoadingIndicator from './components/LoadingIndicator';
 import UploadPrompt from './components/UploadPrompt';
@@ -315,9 +316,9 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-200 flex flex-col items-center p-4 sm:p-8">
-      <div className="w-full max-w-7xl">
+      <div className="w-full max-w-7xl flex-1 flex flex-col">
         <AppHeader />
-        <main className="space-y-6">
+        <main className="space-y-6 flex-1 mb-4">
           {error && <ErrorBanner message={error} />}
           {(isLoading || statusMessage) && (
             <LoadingIndicator statusMessage={statusMessage} />
@@ -358,6 +359,7 @@ function App() {
             </div>
           )}
         </main>
+        <AppFooter />
       </div>
     </div>
   );
